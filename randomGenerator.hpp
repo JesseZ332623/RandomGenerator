@@ -38,7 +38,9 @@ class RandomGenerator
         /**
          * @brief 边界检查，违反会抛 `std::invalid_argument` 异常。
         */
-        void boundCheck(const RandomType & __left, const RandomType & __right);
+        void boundCheck(const RandomType & __left, const RandomType & __right) const;
+
+        void isInitCheck(void) const;
 
     public:
         /**
@@ -111,7 +113,7 @@ std::random_device RandomGenerator<RandomType>::deveice{};
 
 template <typename RandomType>
 inline void RandomGenerator<RandomType>::
-boundCheck(const RandomType & __left, const RandomType & __right)
+boundCheck(const RandomType & __left, const RandomType & __right) const
 {
     if (__left > __right) 
     {
@@ -120,6 +122,19 @@ boundCheck(const RandomType & __left, const RandomType & __right)
                 "[INVALID-ARGUMENT] __left: {} > __right: {}\n",
                 __left, __right
             )
+        };
+    }
+}
+
+template <typename RandomType>
+inline void RandomGenerator<RandomType>::isInitCheck(void) const
+{
+    auto param = this->dist.param();
+
+    if (!param.a() && !param.b()) {
+        throw std::runtime_error{
+            "[RUNTIME-ERROR] Random generate range not set, "
+            "call resetRange() method first.\n"
         };
     }
 }
@@ -139,9 +154,10 @@ RandomGenerator<RandomType>::RandomGenerator(RandomType __left, RandomType __rig
 template <typename RandomType>
 inline void RandomGenerator<RandomType>::resetRange(RandomType __left, RandomType __right)
 {
+    this->boundCheck(__left, __right);
+
     std::scoped_lock<std::mutex> lock{this->mutex};
 
-    this->boundCheck(__left, __right);
     this->dist.param(DistributionType::param_type(__left, __right));
 }
 
@@ -162,16 +178,9 @@ inline void RandomGenerator<RandomType>::resetSeed(uint64_t __seed) noexcept
 template <typename RandomType>
 inline RandomType RandomGenerator<RandomType>::rand(void)
 {
+    this->isInitCheck();
+
     std::scoped_lock<std::mutex> lock{this->mutex};
-
-    auto param = this->dist.param();
-
-    if (param.a() == param.b()) {
-        throw std::runtime_error{
-            "[RUNTIME-ERROR] Random generate range not set, "
-            "call resetRange() method first.\n"
-        };
-    }
 
     return this->dist(this->engine);
 }
