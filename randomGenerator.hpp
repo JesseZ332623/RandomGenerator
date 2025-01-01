@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <memory>
 
-#include <fmt/core.h>
+#include <sstream>
 
 /**
  * @brief 随机数生成器（使用互斥锁确保线程安全）。
@@ -17,6 +17,15 @@ template <typename RandomType>
 class RandomGenerator
 {
     public:
+        /**
+         * @brief 静态断言，这个类不允许使用引用类型进行具体化，
+         *        否则就是编译错误。
+        */ 
+        static_assert(
+            !std::is_reference_v<RandomType>,
+            "[ERROR] Type of RandomGenerator<T> must have non-reference type."
+        );
+
         /**
          * @brief 由于要支持整数和小数的随机生成，
          *        可以使用 `std::conditional<>` 根据 RandomType
@@ -117,19 +126,19 @@ boundCheck(const RandomType & __left, const RandomType & __right) const
 {
     if (__left > __right) 
     {
-        throw std::invalid_argument{
-            fmt::format(
-                "[INVALID-ARGUMENT] __left: {} > __right: {}\n",
-                __left, __right
-            )
-        };
+        std::ostringstream exceptionInfo;
+
+        exceptionInfo << std::fixed << "[INVALID-ARGUMENT] __left: [" << __left  
+                      << "] > " << "__right: [" << __right << "]\n";
+
+        throw std::invalid_argument{exceptionInfo.str()};
     }
 }
 
 template <typename RandomType>
 inline void RandomGenerator<RandomType>::isInitCheck(void) const
 {
-    auto param = this->dist.param();
+    typename DistributionType::param_type param = this->dist.param();
 
     if (!param.a() && !param.b()) {
         throw std::runtime_error{
